@@ -1,14 +1,16 @@
-from fastapi import FastAPI, Response, status, HTTPException
+from hmac import new
+from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
-from typing import Optional
-from pydantic import BaseModel
+from typing import Optional, List
 from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
 
+from sqlalchemy.orm import Session, query
+from . import models, schemas
+from .database import engine, get_db
 
-app = FastAPI()
 
 class Post(BaseModel):
     title: str
@@ -67,7 +69,7 @@ def get_post(id: int):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"post with id {id} was not found"
         )
-    return {"data": post}
+    return post
 
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int):
