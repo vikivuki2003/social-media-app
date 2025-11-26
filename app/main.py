@@ -1,15 +1,16 @@
 from hmac import new
-from fastapi import FastAPI, Response, status, HTTPException, Depends
+from poplib import CR
+from fastapi import FastAPI
 from fastapi.params import Body
-from typing import Optional, List
 from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
 
 from sqlalchemy.orm import Session, query
-from . import models, schemas
-from .database import engine, get_db
+from . import models
+from .database import engine
+from .routers import post, user
 
 
 class Post(BaseModel):
@@ -42,6 +43,9 @@ def find_index_post(id):
     for i, p in enumerate(my_posts):
         if p['id'] == id:
             return i
+
+app.include_router(post.router)
+app.include_router(user.router)
 
 
 @app.get("/")

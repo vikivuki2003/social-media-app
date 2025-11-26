@@ -1,0 +1,135 @@
+diff --git a/app/main.py b/app/main.py
+index fb416f2..6c8e1e5 100644
+--- a/app/main.py
++++ b/app/main.py
+@@ -1,17 +1,18 @@
+ from hmac import new
++from poplib import CR
++from warnings import deprecated
+ from fastapi import FastAPI, Response, status, HTTPException, Depends
+ from fastapi.params import Body
+ from typing import Optional, List
+ from random import randrange
+ 
+ from sqlalchemy.orm import Session, query
+-from . import models, schemas
++from . import models, schemas, utils
+ from .database import engine, get_db
+ 
+ 
+ models.Base.metadata.create_all(bind=engine)
+ 
+-
+ app = FastAPI()
+ 
+ my_posts = [{"title": "My first post", "content": "Content in my post", "id": 1}, {"title":
+@@ -30,46 +31,4 @@ def find_index_post(id):
+ 
+ @app.get("/")
+ async def root():
+-    return "Hello"
+-
+-@app.get("/posts", response_model=List[schemas.Post])
+-def get_posts(db: Session = Depends(get_db)):
+-    posts = db.query(models.Post).all()
+-    return posts
+-
+-@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
+-def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
+-    new_post = models.Post(**post.model_dump())
+-    db.add(new_post)
+-    db.commit()
+-    db.refresh(new_post)
+-    return new_post
+-
+-@app.get("/posts/{id}", response_model=schemas.Post)
+-def get_post(id: int, db: Session = Depends(get_db)):
+-    post = db.query(models.Post).filter(models.Post.id == id).first()
+-    if not post:
+-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+-                            detail=f"post with id {id} was not found"
+-        )
+-    return post
+-
+-@app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
+-def delete_post(id: int, db: Session = Depends(get_db)):
+-    post = db.query(models.Post).filter(models.Post.id == id)
+-    if post.first() == None:
+-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post was not found")
+-    post.delete(synchronize_session=False)
+-    db.commit()
+-    return Response(status_code=status.HTTP_204_NO_CONTENT)
+-
+-
+-@app.put("/posts/{id}", response_model=schemas.Post)
+-def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
+-    post_query = db.query(models.Post).filter(models.Post.id == id)
+-    posts = post_query.first()
+-    if posts == None:
+-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post was not found")
+-    post_query.update(post.model_dump())
+-    db.commit()
+-    return post_query.first()
+\ No newline at end of file
++    return "Hello"
+\ No newline at end of file
+diff --git a/app/models.py b/app/models.py
+index 53d40e2..6da9e3f 100644
+--- a/app/models.py
++++ b/app/models.py
+@@ -10,3 +10,11 @@ class Post(Base):
+     content = Column(String, nullable=False)
+     published = Column(Boolean, default=True)
+     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
++
++class User(Base):
++    __tablename__ = 'users'
++
++    id= Column(Integer, primary_key=True, nullable=False)
++    email = Column(String, nullable=False, unique=True)
++    password = Column(String, nullable=False)
++    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
+\ No newline at end of file
+diff --git a/app/schemas.py b/app/schemas.py
+index f46837e..14dd9c0 100644
+--- a/app/schemas.py
++++ b/app/schemas.py
+@@ -1,5 +1,5 @@
+ import datetime
+-from pydantic import BaseModel
++from pydantic import BaseModel, EmailStr
+ from datetime import datetime
+ 
+ class Post(BaseModel):
+@@ -19,3 +19,11 @@ class Post(PostBase):
+     id: int
+     created_at: datetime
+ 
++class UserCreate(BaseModel):
++    email: EmailStr
++    password: str
++
++class UserOut(BaseModel):
++    id: int
++    email: EmailStr
++    created_at: datetime
+diff --git a/requirements.txt b/requirements.txt
+index dd60ce6..d797300 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,6 +1,7 @@
+ annotated-doc==0.0.4
+ annotated-types==0.7.0
+ anyio==4.11.0
++bcrypt==4.1.2
+ certifi==2025.11.12
+ click==8.3.1
+ dnspython==2.8.0
+@@ -20,6 +21,7 @@ markdown-it-py==4.0.0
+ MarkupSafe==3.0.3
+ mdurl==0.1.2
+ orjson==3.11.4
++passlib==1.7.4
+ psycopg==3.2.13
+ psycopg2==2.9.11
+ pydantic==2.12.4
