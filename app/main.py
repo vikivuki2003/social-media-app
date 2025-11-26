@@ -1,16 +1,16 @@
 from hmac import new
-from fastapi import FastAPI, Response, status, HTTPException, Depends
+from poplib import CR
+from fastapi import FastAPI
 from fastapi.params import Body
-from typing import Optional, List
 from random import randrange
 
 from sqlalchemy.orm import Session, query
-from . import models, schemas
-from .database import engine, get_db
+from . import models
+from .database import engine
+from .routers import post, user
 
 
 models.Base.metadata.create_all(bind=engine)
-
 
 app = FastAPI()
 
@@ -27,49 +27,10 @@ def find_index_post(id):
         if p['id'] == id:
             return i
 
+app.include_router(post.router)
+app.include_router(user.router)
+
 
 @app.get("/")
 async def root():
     return "Hello"
-
-@app.get("/posts", response_model=List[schemas.Post])
-def get_posts(db: Session = Depends(get_db)):
-    posts = db.query(models.Post).all()
-    return posts
-
-@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.Post)
-def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
-    new_post = models.Post(**post.model_dump())
-    db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
-    return new_post
-
-@app.get("/posts/{id}", response_model=schemas.Post)
-def get_post(id: int, db: Session = Depends(get_db)):
-    post = db.query(models.Post).filter(models.Post.id == id).first()
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"post with id {id} was not found"
-        )
-    return post
-
-@app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int, db: Session = Depends(get_db)):
-    post = db.query(models.Post).filter(models.Post.id == id)
-    if post.first() == None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post was not found")
-    post.delete(synchronize_session=False)
-    db.commit()
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@app.put("/posts/{id}", response_model=schemas.Post)
-def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
-    post_query = db.query(models.Post).filter(models.Post.id == id)
-    posts = post_query.first()
-    if posts == None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post was not found")
-    post_query.update(post.model_dump())
-    db.commit()
-    return post_query.first()
