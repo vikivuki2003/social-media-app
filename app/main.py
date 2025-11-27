@@ -10,13 +10,10 @@ import time
 from sqlalchemy.orm import Session, query
 from . import models
 from .database import engine
-from .routers import post, user
+from .routers import post, user, auth
 
+app = FastAPI()
 
-class Post(BaseModel):
-    title: str
-    content: str
-    published: bool = True
 
 while True:
     try:
@@ -46,50 +43,9 @@ def find_index_post(id):
 
 app.include_router(post.router)
 app.include_router(user.router)
+app.include_router(auth.router)
 
 
 @app.get("/")
 async def root():
     return {"message": "Hello"}
-
-@app.get("/posts")
-def get_posts():
-    cursor.execute(""" SELECT * from posts""")
-    posts = cursor.fetchall()
-    return {"data": posts}
-
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: Post):
-    cursor.execute("""INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) RETURNING *""", (post.title, post.content, post.published))
-    new_post = cursor.fetchone()
-    conn.commit()
-    return {"message": new_post}
-
-@app.get("/posts/{id}")
-def get_post(id: int):
-    cursor.execute("""SELECT * from posts WHERE id = %s""", (str(id)))
-    post = cursor.fetchone()
-    if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"post with id {id} was not found"
-        )
-    return post
-
-@app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int):
-    cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING *""", (str(id)))
-    deleted_post = cursor.fetchone()
-    conn.commit()
-    if deleted_post == None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post was not found")
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@app.put("/posts/{id}")
-def update_post(id: int, post: Post):
-    cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING *""", (post.title, post.content, post.published, str(id)))
-    updated_post = cursor.fetchone()
-    conn.commit()
-    if updated_post == None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post was not found")
-    return {"data": updated_post}
