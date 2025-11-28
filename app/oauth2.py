@@ -7,13 +7,13 @@ from sqlalchemy.orm import Session
 from starlette.status import HTTP_100_CONTINUE
 from fastapi.security import OAuth2PasswordBearer
 from app import schemas, database, models
+from .config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
-SECRET_KEY = 'ghtyj3uiklo3loikuyhtgrfed'
-ALGORITM = 'HS256'
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
+SECRET_KEY = settings.secret_key
+ALGORITM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 def create_access_token(data: dict):
     to_encode = data.copy()
